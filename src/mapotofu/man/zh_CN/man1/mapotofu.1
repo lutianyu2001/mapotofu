@@ -1,0 +1,443 @@
+.\" -*- coding: UTF-8 -*-
+.\" mapotofu 的中文手册，译自 man/man1/mapotofu.1，两份一起改。旁边的 mapo.1 只指向本页。
+.\" `mapo \-\-man` 按语言环境显示其中一份。
+.\" 中文不两端对齐（groff 的 man 宏在每节开头按 AD 重设对齐），也不断字。
+.ds AD l
+.TH MAPOTOFU 1 "2026 年 11 月" "mapotofu 0.1.0" "用户命令"
+.nh
+.SH 名称
+mapotofu, mapo \- 按 TOML 描述构建 CJK 合成字体
+.SH 概述
+\fBmapo\fR \fI步骤\fR [\fB\-j\fR \fIN\fR] [\fB\-\-only\fR \fI键\fR...]
+.br
+\fBmapo tool\fR [\fI名称\fR [\fI参数\fR...]]
+.br
+\fBmapo\fR \fB\-\-man\fR | \fB\-\-version\fR | \fB\-h\fR
+.PP
+\fBmapotofu\fR 和 \fBpython \-m mapotofu\fR 是同一个命令。
+.SH 描述
+\fBmapotofu\fR 把Source Han Sans 的 CJK 字形和一款拉丁字体合并成带 hint 的字体；项目给出 斜体用 CJK 源字体（楷体，或本身就画成倾斜的字体）时，也并入它们。输出是 CFF2 可变字重字体、各命名字重的CFF 固定字重字体，以及两者的 OTC 字体集。
+.PP
+构建什么由\fI字体项目\fR描述：一个目录，里面有 \fImapotofu.toml\fR（见\fB配置\fR）、\fIsources.toml\fR（见\fB源字体\fR）、\fIdata/\fR 里的常用字表和 \fIhints/\fR 里的 hint 缓存。步骤在这个目录或它的子目录里运行；在别处运行时，用 \fBMAPOTOFU_ROOT\fR 指明项目。\fB\-h\fR、\fB\-\-version\fR、\fB\-\-man\fR 和各个工具（\fBmapo tool\fR，见\fB工具\fR）不需要项目。
+.PP
+字体分两步构建。第一步把每个字体由源字体合成成没有 hint 的 CFF2 可变字体。第二步用 \fBotfautohint\fR(1) 给可变字体加 hint，从中生成各固定字重，再把两者打包成单独的 OTF 文件和字体集。
+.PP
+只有来源变了的部分才重做：源字体、配置、mapotofu 的代码和它所用库的版本。运行被中断或失败后，再运行同一条命令就接着做，已完成的部分保留。
+.SH 步骤
+.TP
+.B fetch
+把 \fIsources.toml\fR 列出的压缩包和文件下载到 \fIsources/_cache/\fR，逐个核对 SHA\-256，再把列出的成员放到 \fIsources/\fR 下。已经在那里的文件不动。
+.TP
+.B fonts
+第一步：对字形、排版特性或元数据有变化的每个 pool，生成 \fIbuild/fonts/\fR 里没有 hint 的可变字体，各带一个 JSON 文件，记着网页字体包要用的元数据（家族、样式、字重范围和 Unicode 范围）。
+.TP
+.B desktop
+第二步，只用第一步的文件：\fIdist/variable/\fR 里带 hint 的可变字体、\fIdist/static/\fR 里的固定字重字体和 \fIdist/otc/\fR 里的字体集。每个字形只做一次 hint：它的 hint 存进 \fIhints/\fR，以后的构建从那里取。
+.TP
+.B all
+两步依次做。
+.TP
+.B prune\-hints
+删掉 hint 缓存里已经没有字体用到的条目，例如某个源字体更新之后。每个 pool 的第一步都要已经构建好。
+.TP
+.B collections
+只生成 OTC 字体集，用 \fIbuild/pooled/\fR 里现有的 pool 字体。
+.TP
+.B release
+把 \fIdist/\fR 按家族和地区打成 zip，放进 \fIdist/release/\fR（见\fB文件\fR）。每个 zip 都带上项目的 \fIOFL.txt\fR；没有这个文件，或者还有字体没构建出来，就什么也不打包。
+.SH 选项
+.TP
+.BR \-j ", " \-\-jobs " \fIN\fR"
+并行进程数（默认 4）。第一步里是同时构建的 pool 数。第二步里是同时做 hint 的 pool 数，每个 pool 再分成“核数/\fIN\fR”份同时跑；之后的固定字重和单独的字体，按核数和空闲内存能容纳多少就同时做多少。
+.TP
+.BR \-\-only " \fI键\fR..."
+用于 \fBfonts\fR、\fBdesktop\fR 和 \fBall\fR：只构建包含所给字体的 pool，或所给的 pool（见\fB字体和 pool\fR）。键不认识时报错，并列出认识的键。
+.TP
+.B \-\-man
+按语言环境显示本手册（英文；语言环境是 \fBzh\fR 时显示中文），然后退出。在终端上由 \fBman\fR(1) 排版并用它的分页器显示；标准输出不是终端时，输出手册页的源文件，供 \fBman\fR 读取：\fBmapo \-\-man | man \-l \-\fR
+.TP
+.B \-\-version
+输出版本，然后退出。
+.TP
+.BR \-h ", " \-\-help
+输出步骤和选项的简要说明，然后退出。
+.SH 工具
+\fBmapo tool\fR \fI名称\fR 运行 mapotofu 自带的一个工具，用来查看它构建出的字体和它所用的源字体。工具的参数是字体文件，不需要字体项目；单独运行 \fBmapo tool\fR 列出全部工具，\fBmapo tool\fR \fI名称\fR \fB\-h\fR 显示某个工具的参数。工具的\fI字体\fR参数可以是字体文件、字体集里的一个字体（\fIFont.ttc#2\fR），或可变字体轴上的一个位置（\fIFont[wght].ttf@wght=500\fR）。
+.PP
+每个工具都是 Python 包 \fBmapotofu.tools\fR 里的一个模块，别的程序可以导入它的函数，也可以导入它们所用的模块：\fBmapotofu.tools.raster\fR（按上面的写法打开字体，把字形栅格化）和 \fBmapotofu.tools.skeleton\fR（把字形的骨架表示成图，并给出笔画的粗细）。用法见各模块自己的文档。
+.TP
+.BR "tool change" " \fI细\fR \fI粗\fR"
+列出一个字体在两个字重之间的变化和同类字形不一样的字形。\fI细\fR和\fI粗\fR是同一个字体的两个字重：可变字体轴上的两个位置，或者字形名相同的两个固定字重字体。对两者都画出来的每个字形，量出粗的那个相对细的那个的倍数：墨迹的面积（\fBarea\fR）、墨迹最常见的厚度（\fBthick\fR，由主笔画决定）、最细处的厚度（\fBthin\fR，细线、横笔和衬线）、墨迹外框的宽（\fBwidth\fR）和高（\fBheight\fR），以及前进宽度（\fBadvance\fR）。字形按类别分，类别取自它的字符（大写字母、小写字母、其他文字、数字、其他数、附加符号、标点、符号；没有字符对应的字形跟随名字开头的那个字形）。一类的变化是该类各字形的中位数；一个字形只要有一项变化偏离得比该类里除最外面 5% 以外的所有字形都远，就被列出，并给出每项偏离的百分比，偏离最远的在前。\fB\-\-reference\fR \fI细 粗\fR 改用另一个风格相近的家族的两个字重来确定这个范围，而不是字体自己的字形。\fB\-\-only\fR \fI名称\fR 只判断这个字形，可以给多次；这时其余字形单独决定各类的变化，适用于一部分字形是画的、其余是推导出来的字体。\fB\-\-res\fR \fIN\fR 指定栅格每 em 的像素数（默认 512）。这份清单只说明该看哪里，字形本身要靠肉眼判断。
+.TP
+.BR "tool points" " \fI字体\fR \fI文字\fR"
+列出\fI文字\fR里各字的字形轮廓上的点，按字体里存的原样：每个字形先是一行标题（字、码位、字形名、前进宽度、轮廓数和点数），然后是每个轮廓的点，每点一行：它在字形里的编号、x、y，以及它在曲线上还是曲线外。\fB\-\-box\fR \fIX0 Y0 X1 Y1\fR 只列出这个框里的点，单位是字体单位，点的编号不变。\fB\-\-glyph\fR \fI名称\fR 指定一个没有字符对应的字形，可以给多次。复合字形会展开。\fBtool sheet \-\-zoom\fR 看的是一处的形状，这个工具看的是它由哪些点构成。
+.TP
+.BR "tool proof" " \fIOUT\fR \fI字体\fR..."
+画出一个字体的每个字形，包括没有字符对应的：每个字形一块，按第一个字体的字形顺序，上方是字形名，里面每个\fI字体\fR一格。给出可变字体的几个字重，可以看出每个字形能否正常插值（对应得不好的字形会在母版之间露出问题）；给出一个字体的两次构建，可以看出哪里不同。字形在其他字体里按名字查找。各页是 \fIOUT\fR\-01.png、\fIOUT\fR\-02.png，依此类推。\fB\-\-size\fR \fIN\fR 指定一个 em 的像素数（默认 120），\fB\-\-columns\fR \fIN\fR 指定每页一行的字形数（默认 6），\fB\-\-rows\fR \fIN\fR 指定每页的行数（默认 8）。\fB\-\-mark\fR \fI名称\fR 把这个字形的名字写成红色，用于某项检查列出的字形，可以给多次。
+.TP
+.BR "tool same" " \fI字体\fR \fI字体\fR"
+判断两个字体的字形是否完全相同：一个字形画出来的直线和曲线、它们的坐标都一样（组件先展开），前进宽度也一样，才算相同。字形按名字对应。输出两个字体共有多少字形、其中多少不同、各有多少只在一个字体里，并列出它们的名字，每类最多 \fB\-\-list\fR \fIN\fR 个（默认 40）。字形完全相同时退出状态为 0，否则为 1。它用来确认对程序或配置的一次改动没有动到字体，或者只动了该动的字形；按渲染图像做的比较回答的是哪些字形看得出变了，一两个单位的变化它不报。可变字体只比较默认位置。
+.TP
+.BR "tool sheet" " \fIOUT.png\fR \fI文字\fR \fI字体\fR..."
+把\fI文字\fR里的字用每个字体各画一行，行下标出字体名，供肉眼比较。\fB\-\-size\fR \fIN\fR 指定一个 em 的像素数（默认 160）。加上 \fB\-\-zoom\fR \fI字 X Y 宽\fR 时改为显示局部：对每个字体，画出\fI字\fR的字形里以 (\fIX\fR, \fIY\fR) 为中心、\fI宽\fR个单位见方的那一块（每 em 1000 单位，从字形原点算起），每格 \fB\-\-size\fR 像素（默认 360）。这个选项可以给多次，每处一行；这时不画\fI文字\fR，它可以为空。
+.TP
+.BR "tool specimen" " \fI字体\fR \fIOUT.png\fR"
+渲染一个字体的几行样张，按排版文字的方式处理，所以字体的排版特性会生效：拉丁字母、汉字、假名、标点和连字。\fB\-\-weights\fR \fIW,W,...\fR 指定可变字体要显示的字重（默认 250,400,800），\fB\-\-size\fR \fIN\fR 指定一个 em 的像素数（默认 32），\fB\-\-vertical\fR 竖排。
+.TP
+.BR "tool stems" " \fI字体\fR..."
+量出各字体的笔画粗细和字面大小，每个字体输出一行，单位是每 em 1000：竖笔的宽度（\fBstem_v\fR）、横笔的宽度（\fBstem_h\fR）、两者之比（\fBhv\fR）、所有笔画的宽度（\fBweight\fR）、一个字形里粗细变化的程度（\fBspread\fR，粗细均匀时为 1），以及墨迹外框较长的一边（\fBface\fR），都是所量各字的中位数。测量时先把字形栅格化，再沿笔画的中心线读出宽度，所以和轮廓怎么画无关：圆头的、毛笔笔画的字体和普通黑体一样能量。它用来判断源字体的哪个字重对应哪个母版（\fBcjk_weights\fR、\fBitalic_cjk\fR 的字重），以及 \fBscale\fR 取多少能让一个字体的字形和另一个一样大。\fB\-\-chars\fR \fI文字\fR 指定要量的字（默认是由横和竖组成的汉字；字体里没有这些字时用拉丁字母），\fB\-\-res\fR \fIN\fR 指定栅格每 em 的像素数（默认 512）。
+.TP
+.BR "tool ttf2otf" " \fI字体\fR \fIOUT.otf\fR"
+把 TrueType 轮廓的字体做成 PostScript 轮廓（CFF）的 OTF。每个字形重新画一遍：相邻的几段二次曲线在 \fB\-\-tolerance\fR \fI单位\fR（默认 0.3 个字体单位）以内并成三次曲线，坐标取整，复合字形展开成普通轮廓。CFF 表按名字存放字形；字体有竖排度量时，用 VORG 表保留每个字形的竖排原点。之后对轮廓做子程序化，大约要占用字体大小 100 倍的内存；\fB\-\-no\-subroutines\fR 不做这一步，文件会大一些。不生成 hint；可变字体不接受，要先取出一个实例。反方向用 AFDKO 的 \fBotf2ttf\fR(1)。
+.TP
+.BR "tool weights" " \fI字体\fR \fI字体\fR..."
+显示一个家族的各项度量随字重怎样变化。每个\fI字体\fR是这个家族的一个字重。表里每项度量一行、每个字体一列：先是 \fBtool stems\fR 量的那些，然后是墨迹外框的宽度（\fBink\fR）、两侧边距之和（\fBbearings\fR）和前进宽度（\fBadvance\fR），都是所量各字的中位数。基准字体的单位是每 em 1000，其余字体是它的百分比；\fB\-\-base\fR \fIN\fR 按在这些字体里的位置指定基准（默认 1，即第一个）。\fB\-\-chars\fR \fI文字\fR 和 \fB\-\-res\fR \fIN\fR 与 \fBtool stems\fR 的相同。它显示一个家族变粗时的做法（主笔画比细笔画长得快多少、字形是否变宽、字距让出多少），两个家族的表放在一起，可以看出它们的字重轴有多相像。
+.SH 字体和 pool
+一个项目构建下列字体，各有正体和斜体：
+.IP \(bu 2
+\fBfamilies\fR 里的每个家族在 \fBregions\fR 里的每个地区各有一个主字体，收该地区的常用字（见\fB常用字表\fR）；
+.IP \(bu 2
+一个共用扩展字体，收不在任何地区常用字表里、并且各地区写法相同的汉字；
+.IP \(bu 2
+每个地区一个扩展字体，收该地区其余的汉字。
+.PP
+字体的键是 \fI家族\fR\fB\-\fR\fI地区\fR\fB\-Upright\fR 或 \fI家族\fR\fB\-\fR\fI地区\fR\fB\-Italic\fR；扩展字体的家族是 \fBExt\fR，共用扩展字体的地区是 \fBCJK\fR。例如 \fBGothic\-SC\-Upright\fR、\fBMono\-J\-Italic\fR、\fBExt\-TC\-Upright\fR、\fBExt\-CJK\-Italic\fR。
+.PP
+同一个 \fIpool\fR 里的字体字形顺序相同，字形表逐字节相同，字体集里只存一份。pool 有：\fBUpright\fR（所有正体主字体）、\fBItalic\-\fR\fI地区\fR（一个地区的斜体主字体），以及每个扩展字体各自一个 pool，以它的键为名。一个 pool 最多 65535 个字形。
+.PP
+各家族的差别在标点和宽度：
+.TP
+.B Gothic
+弯引号、间隔号、省略号和破折号是全宽的，用该地区的形式。
+.TP
+.B UI
+弯引号保持比例宽度，和拉丁文本里一样；数字是等宽数字。
+.TP
+.B Mono
+等宽：拉丁字母和标点占半宽格，汉字占全宽格。拉丁源字体的 \fBscale\fR 让它正好放进格子。
+.PP
+斜体里，拉丁部分用该家族的斜体拉丁源字体；\fB[fonts.italic_cjk]\fR 列出的地区，汉字和假名用 斜体用 CJK 源字体的，其他地区用 Source Han Sans 的正体字形。
+.SH 字体项目
+.TP
+.I mapotofu.toml
+字体的配置（见\fB配置\fR）。
+.TP
+.I sources.toml
+源字体从哪里下载（见\fB源字体\fR）。
+.TP
+.IR data/common\- 地区 .txt
+各地区的常用字（见\fB常用字表\fR）。
+.TP
+.I hints/
+hint 缓存，每个源字体的字形一个目录；还有 \fIhints/unhinted/\fR\fIpool\fR\fI.toml\fR，记着每个 pool 里 \fBotfautohint\fR 没能加上 hint 的字形，由构建写出。这是源数据，要提交。
+.TP
+.I OFL.txt
+字体的协议，\fBrelease\fR 把它放进每个 zip。
+.TP
+.IR sources/ "、" build/ "、" dist/
+下载的源字体、中间文件和输出。不提交。
+.PP
+字体项目通常是一个依赖 mapotofu 的 \fBuv\fR(1) 项目，这样 \fBuv run mapo all\fR 就按它的 lock 文件记录的版本构建。
+.SH 配置
+\fImapotofu.toml\fR 有四个表，都必须有。改动落在哪个表里，决定要重做多少：
+.TP
+.B [fonts]
+字形和排版特性。改了就重新构建字体（改了 \fIsources.toml\fR 或 \fIdata/\fR 里的文件也一样）。
+.TP
+.B [meta]
+名称和元数据。改了只重新设置已构建字体的元数据。
+.TP
+.BR [hints] "、" [package]
+只影响第二步。
+.PP
+文件名都相对于 \fIsources/\fR。\fI地区\fR是 \fBSC\fR、\fBTC\fR、\fBJ\fR 之一；\fI家族\fR是 \fBGothic\fR、\fBUI\fR、\fBMono\fR 之一；\fI标签\fR是项目给一个源字体起的名字，只用字母。
+.SS [fonts]
+.TP
+.B regions
+地区的数组：要构建的地区，例如 \fB["SC", "TC", "J"]\fR。
+.TP
+.B families
+家族的数组：要构建的家族。
+.TP
+.B axis
+表，有 \fBmin\fR、\fBdefault\fR 和 \fBmax\fR：字体的字重轴（\fBwght\fR）的范围和默认值。
+.TP
+.B masters
+字重的数组，从小到大：可变字体的 master 放在哪些字重上。其中要有 \fBmin\fR、\fBdefault\fR、\fBmax\fR 和 400。每个源字体都在这些字重上取样，中间靠插值，所以一个源字体在每两个相邻 master 之间是线性的，才能被精确还原：范围内各个源字体的每个 master 和每个 \fBavar\fR 折点上都放一个 master。
+.TP
+.B cjk_weights
+数对 [\fI字体的字重\fR, \fI Source Han Sans 的字重\fR] 的数组，从小到大，中间线性插值：字体的每个字重，CJK 字形取自 Source Han Sans 的哪个字重。这些数对要覆盖 \fBaxis\fR 的范围。
+.TP
+.BR [fonts.cjk] " \fI地区\fR"
+表，有 \fBfile\fR（该地区的 Source Han Sans 可变 OTF）和 \fBlanguage\fR（该地区的 OpenType 语言系统：\fBZHS\fR、\fBZHT\fR、\fBJAN\fR）。要构建的每个地区一项；\fBJ\fR 这一项总是需要，因为共用扩展字体和字重轴取自它。
+.TP
+.BR [fonts.latin] " \fI家族\fR"
+两个 \fB[fonts.latin_sources]\fR 里的标签组成的数组：该家族正体用的拉丁源字体和斜体用的拉丁源字体。
+.TP
+.BR [fonts.latin_sources] " \fI标签\fR"
+表，描述一个拉丁源字体，它是带字重轴的可变字体：
+.RS
+.TP
+.B file
+字体文件。
+.TP
+.B location
+可选，轴标签和取值的表：在其他轴上取哪个位置，例如 \fB{ wdth = 100 }\fR。
+.TP
+.B scale
+可选的数（默认 1）：轮廓和度量的缩放倍数。步进宽度是 1000 单位里的 600 的等宽拉丁字体，用 0.8333333333333334（5/6）正好放进 \fBMono\fR 的半宽格。
+.RE
+.IP
+标签是取自这个源字体的字形名的前缀，也是它在 \fB[hints.groups]\fR 里的名字。
+.TP
+.BR [fonts.italic_cjk_sources] " \fI标签\fR"
+可选。一个 斜体用 CJK 源字体，是固定字重字体。标签以一个表示字重的大写字母结尾（\fBkaiL\fR、\fBkaiR\fR、\fBkaiM\fR）：\fB[hints.groups]\fR 里写的是去掉这个字母的标签，这样同一款设计的各个字重共用一个目录。值是文件名，或者一个表：
+.RS
+.TP
+.B file
+字体文件。
+.TP
+.B advance
+可选的整数。用于字身框不是全宽正方形的字体（比如窄体）：每个字形按 \fBscale_x\fR 和 \fBscale_y\fR 缩放，在这个步进宽度里居中，竖排度量用 Source Han Sans 的。
+.TP
+.BR scale_x "、" scale_y
+可选的数（默认 1）：水平和垂直的缩放倍数，以基线为准。只有同时给了 \fBadvance\fR 才起作用。
+.RE
+.TP
+.BR [fonts.italic_cjk] " \fI地区\fR"
+可选。表的数组，该地区 CJK 斜体的每个字重一项，从小到大：
+.RS
+.TP
+.B from
+从字体的哪个字重起用这一项，一直用到下一项的 \fBfrom\fR。
+.TP
+.B sources
+\fB[fonts.italic_cjk_sources]\fR 里的标签的数组，每个字符按这个顺序找。
+.RE
+.IP
+可变斜体沿字重轴在这些字重之间切换（\fBrvrn\fR）；固定字重的斜体用它的字重落进的那一项。键 \fBCJK\fR 给出共用扩展字体的源字体。没有列出的地区，斜体里的汉字和假名保持 Source Han Sans 的正体字形。
+.SS [meta]
+.TP
+.B version
+字符串，例如 \fB"1.2"\fR 或 \fB"1.2.3"\fR：字体的版本，写进 name 表（\fBVersion\fR \fIversion\fR），并以“主.次”的形式写进 \fBhead\fR；\fBrelease\fR 打出的 zip 的文件名里带着它。
+.TP
+.B designer
+字符串：制造商和设计者（name ID 8 和 9）。
+.TP
+.B copyright
+字符串：版权声明的第一行（name ID 0）。后面接上字体所用各个源字体的版权声明，每条一次。
+.TP
+.B license
+字符串：协议说明（name ID 13）。
+.TP
+.B license_url
+字符串：协议的网址（name ID 14）。
+.TP
+.B vendor
+四个字符的字符串：厂商 ID（\fBOS/2\fR 的 achVendID）；不足四个用空格补齐。
+.TP
+.BR [meta.weights] " \fI名字\fR"
+表，有 \fBvalue\fR（轴上的字重）和 \fBclass\fR（\fBOS/2\fR 的 usWeightClass）：一个命名字重，它既是可变字体的命名实例，也是一个固定字重字体。名字就是它的样式名，也是文件名的一部分，例如 \fBSemiBold\fR（\fBSemiBold\fR、\fBSemiBold Italic\fR）。\fBRegular\fR 必须有；\fBBold\fR 是应用程序和 Regular 配对的粗体，应当放在 700。
+.TP
+.BR [meta.regions] " \fI地区\fR"
+表，有 \fBwindows_language\fR（该地区本地名称的 Windows 语言 ID，例如 0x0804）和 \fBcode_page_bit\fR（该地区的代码页在 \fBOS/2\fR 的 ulCodePageRange1 里的位：CP936 是 18，CP950 是 20，CP932 是 17）。
+.TP
+.BR [meta.names. \fI家族\fB] " \fI地区\fR"
+两个字符串的数组：该家族在该地区的英文家族名和本地家族名，例如 \fB["Example Gothic SC", "示例黑体"]\fR。英文名去掉空格就是字体文件名的开头，所以任何两个字体的英文名不能相同。\fB[meta.names.Ext]\fR 以同样的方式给每个地区的扩展字体起名。
+.TP
+.B [meta.ext_cjk]
+共用扩展字体：\fBname\fR（它的英文家族名）和 \fBlocal\fR（地区和本地名称的表；这个字体带有所有地区的本地名称）。
+.TP
+.BR [meta.styles] " \fI地区\fR"
+样式 \fBRegular\fR、\fBItalic\fR、\fBBold\fR 和 \fB"Bold Italic"\fR 的本地名称的表，这四种是应用程序在一个家族里互相关联的样式。字体的本地名称用它们作样式名（name ID 2），并放在全名（name ID 4）的末尾；其他字重的字体，字重写在家族名（name ID 1）里，样式是这四种里的 Regular 或 Italic。
+.SS [hints]
+.TP
+.B own
+\fIhints/\fR 下的一个目录，存 mapotofu 自己画的字形（\fB.notdef\fR）的 hint，以及来源不在 \fBgroups\fR 里的字形的 hint。
+.TP
+.B [hints.groups]
+字形名前缀和 \fIhints/\fR 下目录的表：每个源字体的字形的 hint 存在哪里，这样更新一个源字体只改动它自己的文件。前缀有： Source Han Sans 是 \fBcid\fR，每个拉丁源字体是它的标签，每个 斜体用 CJK 源字体是去掉字重字母的标签。
+.SS [package]
+.TP
+.B collection
+字符串：字体集和它们的 zip 的名字。主字体的字体集以它开头，扩展字体的字体集以它加 \fBExt\fR 开头。
+.SH 源字体
+\fIsources.toml\fR 列出 \fBfetch\fR 要下载的东西。每一项都有 \fBurl\fR 和 \fBsha256\fR（下载到的文件的 SHA\-256，十六进制）；校验和对不上的下载会被拒绝。
+.TP
+.B [[archive]]
+一个 zip 文件。\fBmembers\fR 是“zip 里的路径”和“\fIsources/\fR 下的名字”的表：要从里面取出的文件。
+.TP
+.B [[file]]
+单个文件，按网址的最后一段为名放到 \fIsources/\fR 下；条目里有 \fBname\fR 时用它作文件名。
+.PP
+\fIsources/\fR 下已有的文件保持不动，它的条目不再下载。\fBfetch\fR 只读 \fIsources.toml\fR：在 \fImapotofu.toml\fR 还没有描述任何字体时就能运行。
+.PP
+.EX
+[[archive]]
+url = "https://example.org/fonts/ExampleSans.zip"
+sha256 = "<zip 的 SHA\-256>"
+members = { "variable/ExampleSans[wght].ttf" = "ExampleSans[wght].ttf" }
+
+[[file]]
+url = "https://example.org/fonts/ExampleKai\-Regular.ttf"
+sha256 = "<文件的 SHA\-256>"
+.EE
+.PP
+字体在 \fIsources.toml\fR 变了的时候重新构建，\fIsources/\fR 下的文件变了则不会：源字体出了新版本，就在这里换成新的一项。
+.SH 常用字表
+\fIdata/common\-\fR\fI地区\fR\fI.txt\fR（地区用小写：\fIcommon\-sc.txt\fR、\fIcommon\-tc.txt\fR、\fIcommon\-j.txt\fR）列出进入该地区主字体的汉字，每行开头一个十六进制码位；空行和以 \fB#\fR 开头的行跳过。 Source Han Sans 里其余的统一汉字和兼容汉字进入扩展字体，主字体因此保持小巧。
+.SH 文件
+英文家族名去掉空格是字体文件的\fI词干\fR；\fI样式\fR是字重的名字，斜体在后面加 \fBItalic\fR（Regular 的斜体只写 \fBItalic\fR）。
+.TP
+.IR build/fonts/ 键 .otf
+第一步的无 hint 可变字体，还有 \fI键\fR\fI.json\fR（给网页字体包的元数据）和 \fI键\fR\fI.glyphs.json\fR（每个字形的来源）。
+.TP
+.I build/pooled/
+用来组成字体集的 pool 字体。
+.TP
+.IR build/stamps.json "、" build/memory.json
+每个输出文件是由什么做出来的，以及每个任务用了多少内存。
+.TP
+.IR dist/variable/ 词干 \-VF.otf "、" dist/variable/ 词干 \-Italic\-VF.otf
+带 hint 的可变字体。
+.TP
+.IR dist/static/ 词干 \- 样式 .otf
+固定字重字体。
+.TP
+.IR dist/otc/ collection \-VF.otc "、" dist/otc/ collection \- 样式 .otc
+主字体的字体集，可变的（斜体是 \fB\-Italic\-VF\fR）和固定字重的；扩展字体的字体集以 \fIcollection\fR\fBExt\fR 开头。
+.TP
+.I dist/pools.json
+每个 pool 里有哪些字体。
+.TP
+.IR dist/release/ 词干 \- 版本 \-VF.zip "、" dist/release/ 词干 \- 版本 \-static.zip
+一个家族在一个地区的可变字体，以及它的固定字重字体。
+.TP
+.IR dist/release/ collection \- 版本 \-OTC\-VF.zip "、" dist/release/ collection \- 版本 \-OTC.zip
+字体集，可变的和固定字重的；\fIcollection\fR\fBExt\fR 也一样。
+.SH 环境变量
+.TP
+.B MAPOTOFU_ROOT
+字体项目的目录，用于不在项目里运行命令的时候。
+.TP
+.B SOURCE_DATE_EPOCH
+写进字体的创建和修改日期，自 1970 年起的秒数（默认 1767225600，即 2026 年的第一天）。改了就重新设置已构建字体的元数据。
+.TP
+.BR LANGUAGE "、" LC_ALL "、" LC_MESSAGES "、" LANG
+其中第一个设了值的，决定 \fB\-\-man\fR 的语言。
+.TP
+.BR MANPAGER "、" PAGER
+\fBman\fR(1) 的分页器，\fB\-\-man\fR 用的就是它。
+.SH 退出状态
+步骤成功时为 0；失败或找不到字体项目时为 1；命令行写错时为 2。
+.SH 注意
+给一个固定字重字体做子程序化（subroutinize）要用掉大约它 100 倍大小的内存。mapotofu 把每个任务用掉的内存记在 \fIbuild/memory.json\fR 里，只在有这么多空闲内存时才启动任务。
+.PP
+项目正在构建时，不要在里面再运行别的 \fBuv run\fR：uv 可能重写环境，构建会丢掉它的工作进程。
+.PP
+用别的字体做出来的字体是它们的修改版本（Modified Version）。源字体采用 SIL Open Font License 时，成品也必须以它发布，名字里不能用源字体的保留字体名（Source Han Sans 保留了“Source”）。
+.SH 示例
+下载源字体，构建全部，再打包发布：
+.PP
+.EX
+uv run mapo fetch
+uv run mapo all
+uv run mapo release
+.EE
+.PP
+只构建正体主字体，有那么多 pool 时同时做八个：
+.PP
+.EX
+uv run mapo all \-j 8 \-\-only Upright
+.EE
+.PP
+量两个源字体的笔画粗细，再并排看它们的一处细节：
+.PP
+.EX
+mapo tool stems ExampleKai\-Regular.ttf "ExampleSans[wght].ttf@wght=400"
+mapo tool sheet spot.png "" ExampleKai\-Regular.ttf "ExampleSans[wght].ttf@wght=400" \-\-zoom 永 520 80 300
+.EE
+.PP
+做了一次不该改变字体的改动之后，把改动前构建的字体和改动后构建的比一下：
+.PP
+.EX
+mapo tool same before/Gothic\-SC\-Upright.otf build/fonts/Gothic\-SC\-Upright.otf
+.EE
+.PP
+一份完整的 \fImapotofu.toml\fR：一个家族、两个地区，SC 的斜体用楷体。其中的家族名、文件名和标签都只是例子：
+.PP
+.EX
+[fonts]
+regions = ["SC", "J"]
+families = ["Gothic"]
+axis = { min = 250, default = 400, max = 800 }
+masters = [250, 300, 350, 400, 500, 600, 700, 800]
+cjk_weights = [[250, 250], [400, 400], [800, 800]]
+
+[fonts.cjk]
+SC = { file = "SourceHanSansSC\-VF.otf", language = "ZHS" }
+J = { file = "SourceHanSans\-VF.otf", language = "JAN" }
+
+[fonts.latin]
+Gothic = ["sans", "sansI"]
+
+[fonts.latin_sources]
+sans = { file = "ExampleSans[wdth,wght].ttf", location = { wdth = 100 } }
+sansI = { file = "ExampleSans\-Italic[wdth,wght].ttf", location = { wdth = 100 } }
+
+[fonts.italic_cjk_sources]
+kaiL = "ExampleKai\-Light.ttf"
+kaiR = { file = "ExampleKai\-Regular.ttf", advance = 1000, scale_x = 1.0, scale_y = 1.0 }
+
+[fonts.italic_cjk]
+SC = [{ from = 250, sources = ["kaiL"] }, { from = 350, sources = ["kaiR"] }]
+
+[meta]
+version = "1.0"
+designer = "A. Designer"
+copyright = "Copyright 2026 A. Designer"
+license = "This Font Software is licensed under the SIL Open Font License, Version 1.1."
+license_url = "https://openfontlicense.org"
+vendor = "EXMP"
+
+[meta.weights]
+Light = { value = 300, class = 300 }
+Regular = { value = 400, class = 400 }
+Bold = { value = 700, class = 700 }
+
+[meta.regions]
+SC = { windows_language = 0x0804, code_page_bit = 18 }
+J = { windows_language = 0x0411, code_page_bit = 17 }
+
+[meta.names.Gothic]
+SC = ["Example Gothic SC", "示例黑体"]
+J = ["Example Gothic", "見本ゴシック"]
+
+[meta.names.Ext]
+SC = ["Example Ext SC", "示例黑体 扩展"]
+J = ["Example Ext J", "見本ゴシック 拡張"]
+
+[meta.ext_cjk]
+name = "Example Ext CJK"
+local = { SC = "示例黑体 扩展 通用", J = "見本ゴシック 拡張 共通" }
+
+[meta.styles]
+SC = { Regular = "常规", Italic = "斜体", Bold = "粗体", "Bold Italic" = "粗斜体" }
+J = { Regular = "標準", Italic = "斜体", Bold = "太字", "Bold Italic" = "太字 斜体" }
+
+[hints]
+own = "example"
+
+[hints.groups]
+cid = "source\-han\-sans"
+sans = "example\-sans"
+sansI = "example\-sans\-italic"
+kai = "example\-kai"
+
+[package]
+collection = "Example"
+.EE
+.SH 另见
+\fBotfautohint\fR(1)、\fBtx\fR(1)、\fBfonttools\fR(1)、\fBuv\fR(1)
+.PP
+https://github.com/lutianyu2001/mapotofu

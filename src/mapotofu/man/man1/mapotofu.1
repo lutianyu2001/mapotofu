@@ -1,0 +1,1022 @@
+.\" -*- coding: UTF-8 -*-
+.\" The manual of mapotofu. Its Chinese translation is man/zh_CN/man1/mapotofu.1; change both
+.\" together. mapo.1 beside each only names this page. `mapo --man` shows the one of the locale.
+.TH MAPOTOFU 1 "November 2026" "mapotofu 0.1.0" "User Commands"
+.SH NAME
+mapotofu, mapo \- build CJK composite fonts from a TOML description
+.SH SYNOPSIS
+.B mapo
+.I STEP
+.RB [ \-j
+.IR N ]
+.RB [ \-\-only
+.IR KEY ...]
+.br
+.B mapo tool
+.RI [ NAME " [" ARGUMENT ...]]
+.br
+.B mapo
+.BR \-\-man " | " \-\-version " | " \-h
+.PP
+.B mapotofu
+and
+.B python \-m mapotofu
+are the same command.
+.SH DESCRIPTION
+.B mapotofu
+merges the CJK glyphs of Source Han Sans with a Latin font and, where the project gives any,
+with CJK italic sources (a regular\-script or slanted font drawn as such) into hinted fonts:
+CFF2 variable\-weight fonts, static CFF fonts of the named weights, and OTC collections of both.
+.PP
+What is built is described by a
+.IR "font project" :
+a directory holding a
+.I mapotofu.toml
+(see
+.BR CONFIGURATION ),
+a
+.I sources.toml
+(see
+.BR SOURCES ),
+the lists of common ideographs in
+.I data/
+and the hint cache in
+.IR hints/ .
+A step is run in that directory or in one below it;
+.B MAPOTOFU_ROOT
+names the project when the command is run from elsewhere.
+.BR \-h ,
+.BR \-\-version ,
+.B \-\-man
+and the tools
+.RB ( "mapo tool" ,
+see
+.BR TOOLS )
+need no project.
+.PP
+The fonts are built in two steps.
+The first assembles each font from the sources as an unhinted CFF2 variable font.
+The second hints the variable fonts with
+.BR otfautohint (1),
+instances the static weights from them, and packages both as standalone OTF files and as
+collections.
+.PP
+Work is redone only where what it is made from changed: the sources, the configuration, the
+code of mapotofu and the versions of its libraries.
+An interrupted or failed run is resumed by running the same command again; finished work is
+kept.
+.SH STEPS
+.TP
+.B fetch
+Download the archives and files listed in
+.I sources.toml
+into
+.IR sources/_cache/ ,
+check the SHA\-256 of each, and place the listed members under
+.IR sources/ .
+A file that is already there is left as it is.
+.TP
+.B fonts
+The first step: for every pool whose glyphs, layout or metadata changed, the unhinted
+variable fonts in
+.IR build/fonts/ ,
+each with a JSON file of the metadata a web package needs (family, style, weight range and
+Unicode ranges).
+.TP
+.B desktop
+The second step, made from the files of the first only: the hinted variable fonts in
+.IR dist/variable/ ,
+the static fonts in
+.IR dist/static/
+and the collections in
+.IR dist/otc/ .
+Each glyph is hinted once: its hints are kept in
+.I hints/
+and taken from there by later builds.
+.TP
+.B all
+Both steps, one after the other.
+.TP
+.B prune\-hints
+Drop the entries of the hint cache that no font uses any more, as after a source changed.
+The first step of every pool must have been built.
+.TP
+.B collections
+Only the OTC collections, from the pool\-backed fonts there are in
+.IR build/pooled/ .
+.TP
+.B release
+Pack
+.I dist/
+into zip files in
+.IR dist/release/ ,
+by family and region (see
+.BR FILES ).
+Each zip carries the project's
+.IR OFL.txt ;
+without that file, or while a font is missing, nothing is packed.
+.SH OPTIONS
+.TP
+.BR \-j ", " \-\-jobs " \fIN\fR"
+Parallel processes (default: 4).
+In the first step, the pools built at once.
+In the second, the pools hinted at once, each over cores/\fIN\fR runs; the static weights
+and the standalone fonts are then made as many at a time as the cores and the free memory
+allow.
+.TP
+.BR \-\-only " \fIKEY\fR..."
+For
+.BR fonts ,
+.B desktop
+and
+.BR all :
+build only the pools that hold the given fonts, or the given pools (see
+.BR "FONTS AND POOLS" ).
+An unknown key is an error that lists the known ones.
+.TP
+.B \-\-man
+Show this manual in the language of the locale (English, or Chinese in a
+.B zh
+locale) and exit.
+On a terminal,
+.BR man (1)
+formats it and shows it in its pager; where standard output is not a terminal, the page's
+source is written, for
+.B man
+to read:
+.B mapo \-\-man | man \-l \-
+.TP
+.B \-\-version
+Print the version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print a summary of the steps and options and exit.
+.SH TOOLS
+.B mapo tool
+.I NAME
+runs one of the tools that come with mapotofu, for looking at the fonts it builds and at the
+fonts it builds them from.
+They take font files and need no font project;
+.B mapo tool
+alone lists them, and
+.B mapo tool
+.I NAME
+.B \-h
+shows the arguments of one.
+A
+.I FONT
+of a tool is a font file, a face of a collection
+.RI ( Font.ttc#2 ),
+or a place on the axes of a variable font
+.RI ( Font[wght].ttf@wght=500 ).
+.PP
+Each tool is a module of the Python package
+.BR mapotofu.tools ,
+and other programs may import its functions, as well as the modules they are made of:
+.B mapotofu.tools.raster
+(fonts opened by such a spec, their glyphs rasterised) and
+.B mapotofu.tools.skeleton
+(the skeleton of a glyph as a graph, with the width of its strokes).
+The modules' own documentation says how.
+.TP
+.BR "tool change" " \fILIGHT\fR \fIHEAVY\fR"
+List the glyphs that change between two weights of a font unlike the others of their kind.
+.I LIGHT
+and
+.I HEAVY
+are two weights of one font: two places on the axis of a variable font, or two static fonts
+with the same glyph names.
+For every glyph both draw, it measures how much the heavy one has of the light one's ink
+.RB ( area ),
+of the thickness of the ink where it is commonest
+.RB ( thick ,
+the stems) and where it is thinnest
+.RB ( thin ,
+hairlines, bars and serifs), of the
+.B width
+and the
+.B height
+of the ink and of the
+.BR advance .
+The glyphs go by kind, read from their characters (capitals, small letters, other letters,
+figures, other numbers, marks, punctuation, symbols; a glyph no character leads to goes with
+the glyph its name starts with).
+The change of a kind is the median over its glyphs, and a glyph is listed when one of its
+changes is further off it than all but the outermost 5% of the glyphs of that kind are, with
+each such change in percent, the furthest off first.
+.B \-\-reference
+.I LIGHT HEAVY
+takes that spread from two weights of another family of a close style, instead of from the
+font's own glyphs.
+.B \-\-only
+.I NAME
+judges only that glyph and may be given several times; the other glyphs alone then set the
+change of their kind, for a font in which some glyphs were drawn and the others derived.
+.B \-\-res
+.I N
+sets the pixels per em of the raster (default: 512).
+The list says where to look; the glyph itself is judged by eye.
+.TP
+.BR "tool points" " \fIFONT\fR \fITEXT\fR"
+List the points of the outlines of the glyphs of
+.IR TEXT ,
+as the font stores them: for each glyph a heading (character, code point, glyph name, advance,
+contours and points), then each contour's points, a line a point with its number in the glyph,
+x, y and whether it is on the curve or off it.
+.B \-\-box
+.I X0 Y0 X1 Y1
+lists only the points within that box, in font units; a point keeps its number.
+.B \-\-glyph
+.I NAME
+names a glyph no character leads to, and may be given several times.
+Composite glyphs are drawn out.
+It shows what a part of a glyph is made of, where
+.B tool sheet \-\-zoom
+shows its shape.
+.TP
+.BR "tool proof" " \fIOUT\fR \fIFONT\fR..."
+Draw every glyph of a font, also those no character leads to: a tile a glyph, in the order of
+the first font's glyphs, with the glyph's name above it and a cell a
+.I FONT
+in it.
+Given the weights of a variable font, it shows whether every glyph interpolates (a badly
+matched one shows between its masters); given two builds of a font, what differs.
+A glyph is found in the other fonts by its name.
+The pages are \fIOUT\fR\-01.png, \fIOUT\fR\-02.png and so on.
+.B \-\-size
+.I N
+sets the pixels of an em (default: 120),
+.B \-\-columns
+.I N
+the glyphs in a row of a page (default: 6) and
+.B \-\-rows
+.I N
+the rows of a page (default: 8).
+.B \-\-mark
+.I NAME
+writes that glyph's name in red, for the glyphs a check has listed; it may be given several
+times.
+.TP
+.BR "tool same" " \fIFONT\fR \fIFONT\fR"
+Tell whether two fonts have exactly the same glyphs: a glyph is the same when drawing it gives
+the same lines and curves at the same coordinates (components drawn out) and its advance width
+is the same.
+Glyphs are matched by name.
+It prints how many glyphs both fonts have, how many of them differ and how many only one font
+has, and names them, at most
+.B \-\-list
+.I N
+of each (default: 40).
+The exit status is 0 if the fonts have the same glyphs and 1 if not.
+It is the check that a change to the program or to a configuration left the fonts alone, or
+touched only the glyphs it was meant to; a comparison of rendered images tells which glyphs
+changed visibly and passes over changes of a unit or two.
+A variable font is compared at its default location.
+.TP
+.BR "tool sheet" " \fIOUT.png\fR \fITEXT\fR \fIFONT\fR..."
+Draw the characters of
+.I TEXT
+in every font, a row a font with the font's name under it, to compare the fonts by eye.
+.B \-\-size
+.I N
+sets the pixels of an em (default: 160).
+With
+.B \-\-zoom
+.I CHAR X Y WIDTH
+the sheet shows a spot instead: for each font, the part of the glyph of
+.I CHAR
+that is
+.I WIDTH
+units wide around
+.RI ( X ", " Y ),
+in units of 1000 per em from the glyph's origin, in a cell of
+.B \-\-size
+pixels (default: 360).
+The option may be given several times, a row a spot;
+.I TEXT
+is then not drawn and may be empty.
+.TP
+.BR "tool specimen" " \fIFONT\fR \fIOUT.png\fR"
+Render sample lines of a font, shaped as text is, so that its layout features apply:
+Latin, Han, kana, punctuation and ligatures.
+.B \-\-weights
+.I W,W,...
+names the weights of a variable font to show (default: 250,400,800),
+.B \-\-size
+.I N
+the pixels of an em (default: 32), and
+.B \-\-vertical
+sets the lines vertically.
+.TP
+.BR "tool stems" " \fIFONT\fR..."
+Measure the stroke widths and the glyph size of fonts and print a table, a line a font, in
+units of 1000 per em: the width of vertical strokes
+.RB ( stem_v ),
+of horizontal ones
+.RB ( stem_h ),
+their ratio
+.RB ( hv ),
+the width of all strokes
+.RB ( weight ),
+how much it varies within a glyph
+.RB ( spread ,
+1 for a monoline), and the larger side of the ink's box
+.RB ( face ),
+each the median over the characters measured.
+The glyphs are rasterised and a stroke's width is read along its centre line, so the shape of
+the outlines does not matter: fonts with round ends or brush strokes are measured as plain
+gothics are.
+It tells which weight of a source matches a master
+.RB ( cjk_weights ,
+the weights of
+.BR italic_cjk )
+and what
+.B scale
+fits one font's glyphs to another's.
+.B \-\-chars
+.I TEXT
+names the characters to measure (default: Han characters built of horizontal and vertical
+strokes, or Latin letters for a font without them), and
+.B \-\-res
+.I N
+the pixels per em of the raster (default: 512).
+.TP
+.BR "tool ttf2otf" " \fIFONT\fR \fIOUT.otf\fR"
+Make a font with TrueType outlines into an OTF with PostScript outlines (CFF).
+Every glyph is drawn anew: runs of quadratic curves are joined into cubic ones to within
+.B \-\-tolerance
+.I UNITS
+(default: 0.3 font units), coordinates are rounded to whole units, and composite glyphs become
+plain outlines.
+The CFF table holds the glyphs by name, and with vertical metrics a VORG table keeps each
+glyph's vertical origin.
+The outlines are then subroutinized, which takes about a hundred times the font's size in
+memory;
+.B \-\-no\-subroutines
+leaves that out, for a larger file.
+Hints are not made, and a variable font is refused: instance it first.
+The other direction is AFDKO's
+.BR otf2ttf (1).
+.TP
+.BR "tool weights" " \fIFONT\fR \fIFONT\fR..."
+Show how the measures of a family change with weight.
+Each
+.I FONT
+is one weight of the family.
+The table has a line a measure and a column a font: what
+.B tool stems
+measures, then the width of the ink's box
+.RB ( ink ),
+both side bearings together
+.RB ( bearings )
+and the
+.BR advance ,
+each the median over the characters measured.
+The base font is in units of 1000 per em and the others in percent of it;
+.B \-\-base
+.I N
+names the base by its place among the fonts (default: 1, the first).
+.B \-\-chars
+.I TEXT
+and
+.B \-\-res
+.I N
+are those of
+.BR "tool stems" .
+It shows how a family gains weight (how much faster its stems grow than its thin strokes,
+whether its glyphs widen, what its spacing gives up), and the tables of two families tell how
+alike their weight axes are.
+.SH FONTS AND POOLS
+A project builds, upright and italic:
+.IP \(bu 2
+a main font for every family of
+.B families
+in every region of
+.BR regions ,
+holding the region's common ideographs (see
+.BR "COMMON IDEOGRAPHS" );
+.IP \(bu 2
+one shared extension font, holding the ideographs that are outside the common list of every
+region and drawn the same in all of them;
+.IP \(bu 2
+an extension font for every region, holding the region's other ideographs.
+.PP
+A font's key is
+.IB Family \- Region \-Upright
+or
+.IB Family \- Region \-Italic\fR,
+where the family of an extension is
+.B Ext
+and the region of the shared extension is
+.BR CJK :
+.BR Gothic\-SC\-Upright ,
+.BR Mono\-J\-Italic ,
+.BR Ext\-TC\-Upright ,
+.BR Ext\-CJK\-Italic .
+.PP
+Fonts of one
+.I pool
+have the same glyph order and byte\-identical glyph tables, which a collection stores once.
+The pools are
+.B Upright
+(every upright main font),
+.BI Italic\- Region
+(the italic main fonts of a region) and one for each extension font, named by its key.
+A pool holds at most 65535 glyphs.
+.PP
+The families differ in their punctuation and widths:
+.TP
+.B Gothic
+Curly quotes, the middle dot, the ellipsis and the em dash are full width, in the forms of
+the region.
+.TP
+.B UI
+Curly quotes keep their proportional width, as in Latin text; figures are tabular.
+.TP
+.B Mono
+Fixed pitch: Latin and punctuation in half\-width cells, ideographs in full\-width ones.
+The Latin source's
+.B scale
+makes it fit its cell.
+.PP
+In the italics, the Latin is the family's italic Latin source; the ideographs and kana are
+those of the CJK italic sources for the regions listed in
+.BR [fonts.italic_cjk] ,
+and the upright ones of Source Han Sans elsewhere.
+.SH THE FONT PROJECT
+.TP
+.I mapotofu.toml
+The configuration of the fonts (see
+.BR CONFIGURATION ).
+.TP
+.I sources.toml
+Where the source fonts are downloaded from (see
+.BR SOURCES ).
+.TP
+.IR data/common\- region .txt
+The common ideographs of each region (see
+.BR "COMMON IDEOGRAPHS" ).
+.TP
+.I hints/
+The hint cache, one directory for each source's glyphs, and
+.IR hints/unhinted/ pool .toml ,
+the glyphs of each pool that
+.B otfautohint
+left unhinted, written by the build.
+Source data: commit it.
+.TP
+.I OFL.txt
+The license of the fonts, which
+.B release
+puts into every zip.
+.TP
+.IR sources/ ", " build/ ", " dist/
+Downloaded sources, intermediate files and output.
+Not to be committed.
+.PP
+A project is usually a
+.BR uv (1)
+project that depends on mapotofu, so that
+.B uv run mapo all
+builds it with the versions its lock file records.
+.SH CONFIGURATION
+.I mapotofu.toml
+has four tables, all of them required.
+The table a change is in decides how much is built again:
+.TP
+.B [fonts]
+The glyphs and the layout.
+A change builds the fonts anew (so does a change of
+.I sources.toml
+or of a file in
+.IR data/ ).
+.TP
+.B [meta]
+The names and the metadata.
+A change only sets the metadata of the built fonts again.
+.TP
+.BR [hints] ", " [package]
+The second step alone.
+.PP
+Files are named relative to
+.IR sources/ .
+A
+.I region
+is one of
+.BR SC ,
+.B TC
+and
+.BR J ;
+a
+.I family
+is one of
+.BR Gothic ,
+.B UI
+and
+.BR Mono ;
+a
+.I tag
+is a name of letters that the project gives a source.
+.SS [fonts]
+.TP
+.B regions
+Array of regions: the regions to build, such as
+.BR "[""SC"", ""TC"", ""J""]" .
+.TP
+.B families
+Array of families: the families to build.
+.TP
+.B axis
+Table with
+.BR min ,
+.B default
+and
+.BR max :
+the range and the default of the weight axis
+.RB ( wght )
+of the fonts.
+.TP
+.B masters
+Array of weights, ascending: where the masters of the variable fonts stand.
+They include
+.BR min ,
+.BR default ,
+.B max
+and 400.
+Every source is taken at these weights and interpolated in between, so a source is
+reproduced exactly when it is linear between each two of them: place a master at every
+master and every
+.B avar
+breakpoint of the sources inside the range.
+.TP
+.B cjk_weights
+Array of pairs
+.RI [ "weight of the fonts" ", " "weight of Source Han Sans" ],
+ascending, linear in between: the Source Han Sans weight each weight of the fonts takes its
+CJK glyphs from.
+The pairs cover the range of
+.BR axis .
+.TP
+.BR [fonts.cjk] " \fIregion\fR"
+Table with
+.B file
+(the variable OTF of Source Han Sans for the region) and
+.B language
+(the OpenType language system of the region:
+.BR ZHS ,
+.BR ZHT ,
+.BR JAN ).
+One entry for each region built; the entry of
+.B J
+is always needed, since the shared extension and the weight axis are taken from it.
+.TP
+.BR [fonts.latin] " \fIfamily\fR"
+Array of two tags of
+.BR [fonts.latin_sources] :
+the Latin source of the family's upright fonts and that of its italics.
+.TP
+.BR [fonts.latin_sources] " \fItag\fR"
+Table describing a Latin source, a variable font with a weight axis:
+.RS
+.TP
+.B file
+The font file.
+.TP
+.B location
+Optional table of axis tag and value: where the font is taken on its other axes, such as
+.BR "{ wdth = 100 }" .
+.TP
+.B scale
+Optional number (default 1): the factor its outlines and metrics are scaled by.
+A monospaced Latin font whose advance is 600 of 1000 units fits the half\-width cell of
+.B Mono
+with 0.8333333333333334 (5/6).
+.RE
+.IP
+The tag is the prefix of the glyph names taken from the source, and the name it has in
+.BR [hints.groups] .
+.TP
+.BR [fonts.italic_cjk_sources] " \fItag\fR"
+Optional.
+A CJK italic source, a static font.
+Its tag ends in a capital letter that names its weight
+.RB ( kaiL ,
+.BR kaiR ,
+.BR kaiM ):
+.B [hints.groups]
+names the tag without that letter, so that the weights of one design share a directory.
+Either the file's name, or a table:
+.RS
+.TP
+.B file
+The font file.
+.TP
+.B advance
+Optional integer.
+For a font whose em box is not the full\-width square, such as a narrow one: each glyph is
+scaled by
+.B scale_x
+and
+.BR scale_y ,
+centred in this advance width, and given the vertical metrics of Source Han Sans.
+.TP
+.BR scale_x ", " scale_y
+Optional numbers (default 1): the horizontal and vertical factors, about the baseline.
+They take effect only together with
+.BR advance .
+.RE
+.TP
+.BR [fonts.italic_cjk] " \fIregion\fR"
+Optional.
+Array of tables, one for each weight of the region's CJK italics, ascending:
+.RS
+.TP
+.B from
+The lowest weight of the fonts this one is used from; it holds until the
+.B from
+of the next.
+.TP
+.B sources
+Array of tags of
+.BR [fonts.italic_cjk_sources] ,
+tried in this order for each character.
+.RE
+.IP
+A variable italic switches between these weights along the weight axis
+.RB ( rvrn );
+a static italic takes the one its weight falls into.
+The key
+.B CJK
+gives the sources of the shared extension.
+A region without an entry keeps the upright ideographs and kana of Source Han Sans in its
+italics.
+.SS [meta]
+.TP
+.B version
+String, such as
+.BR """1.2""" " or " """1.2.3""" :
+the version of the fonts, written into the name table as
+.B Version
+.I version
+and, as major.minor, into
+.BR head ;
+the zip files of
+.B release
+carry it in their names.
+.TP
+.B designer
+String: the manufacturer and the designer (name IDs 8 and 9).
+.TP
+.B copyright
+String: the first line of the copyright notice (name ID 0).
+The copyright notices of the sources a font is made from follow it, each once.
+.TP
+.B license
+String: the license description (name ID 13).
+.TP
+.B license_url
+String: the license's address (name ID 14).
+.TP
+.B vendor
+String of four characters: the vendor ID
+.RB ( OS/2
+achVendID); pad a shorter one with spaces.
+.TP
+.BR [meta.weights] " \fIname\fR"
+Table with
+.B value
+(the weight on the axis) and
+.B class
+(the
+.B OS/2
+usWeightClass): a named weight, which is a named instance of the variable fonts and a static
+font.
+The name is its style name and part of its file name, such as
+.B SemiBold
+.RB ( SemiBold ,
+.BR "SemiBold Italic" ).
+.B Regular
+is required, and
+.BR Bold ,
+the bold that applications link to Regular, belongs at 700.
+.TP
+.BR [meta.regions] " \fIregion\fR"
+Table with
+.B windows_language
+(the Windows language ID of the region's local names, such as 0x0804) and
+.B code_page_bit
+(the bit of the region's code page in
+.B OS/2
+ulCodePageRange1: 18 for CP936, 20 for CP950, 17 for CP932).
+.TP
+.BR [meta.names. \fIfamily\fB] " \fIregion\fR"
+Array of two strings: the English and the local family name of the family in the region,
+such as
+.BR "[""Example Gothic SC"", ""示例黑体""]" .
+The English name without its spaces starts the font's file names, and no two fonts may share
+one.
+.B [meta.names.Ext]
+names the extension font of each region the same way.
+.TP
+.B [meta.ext_cjk]
+The shared extension font:
+.B name
+(its English family name) and
+.B local
+(a table of region and local name; the font carries the local names of all regions).
+.TP
+.BR [meta.styles] " \fIregion\fR"
+Table of the local names of the styles
+.BR Regular ,
+.BR Italic ,
+.B Bold
+and
+.BR """Bold Italic""" ,
+the four that applications link within a family.
+A font's local names carry them as its style name (name ID 2) and at the end of its full
+name (name ID 4); a font of another weight has that weight in its family name (name ID 1)
+and is Regular or Italic there.
+.SS [hints]
+.TP
+.B own
+The directory under
+.I hints/
+for the hints of glyphs mapotofu draws itself
+.RB ( .notdef )
+and of any glyph whose source has no entry in
+.BR groups .
+.TP
+.B [hints.groups]
+Table of glyph name prefix and directory under
+.IR hints/ :
+where the hints of each source's glyphs are kept, so that updating one source changes only
+its own files.
+The prefixes are
+.B cid
+for Source Han Sans, the tag of each Latin source, and the tag of each CJK italic source
+without its weight letter.
+.SS [package]
+.TP
+.B collection
+String: the name of the collections and of their zip files.
+The collections of the main fonts start with it, those of the extensions with it followed by
+.BR Ext .
+.SH SOURCES
+.I sources.toml
+lists what
+.B fetch
+downloads.
+Each entry has
+.B url
+and
+.B sha256
+(the SHA\-256 of the downloaded file, in hexadecimal); a download whose checksum differs is
+refused.
+.TP
+.B [[archive]]
+A zip file.
+.B members
+is a table of path inside the zip and name under
+.IR sources/ :
+the files to take out of it.
+.TP
+.B [[file]]
+A single file, placed under
+.I sources/
+by the last part of its address, or by
+.B name
+if the entry gives one.
+.PP
+A file already under
+.I sources/
+is kept, and its entry is not downloaded again.
+.B fetch
+reads only
+.IR sources.toml :
+it runs before
+.I mapotofu.toml
+describes any font.
+.PP
+.EX
+[[archive]]
+url = "https://example.org/fonts/ExampleSans.zip"
+sha256 = "<SHA\-256 of the zip>"
+members = { "variable/ExampleSans[wght].ttf" = "ExampleSans[wght].ttf" }
+
+[[file]]
+url = "https://example.org/fonts/ExampleKai\-Regular.ttf"
+sha256 = "<SHA\-256 of the file>"
+.EE
+.PP
+The fonts are built anew when
+.I sources.toml
+changes, not when a file under
+.I sources/
+does: a new version of a source is a new entry here.
+.SH COMMON IDEOGRAPHS
+.IR data/common\- region .txt
+(the region in lower case:
+.IR common\-sc.txt ,
+.IR common\-tc.txt ,
+.IR common\-j.txt )
+lists the ideographs that go into the main fonts of the region, one hexadecimal code point at
+the start of each line; an empty line or one that starts with
+.B #
+is skipped.
+The other unified and compatibility ideographs of Source Han Sans go into the extension
+fonts, so that the main fonts stay small.
+.SH FILES
+The English family name without its spaces is the
+.I stem
+of a font's files; a
+.I style
+is a weight's name, with
+.B Italic
+after it in the italics
+.RB ( Italic
+alone for Regular).
+.TP
+.IR build/fonts/ key .otf
+The unhinted variable fonts of the first step, with
+.IR key .json
+(metadata for a web package) and
+.IR key .glyphs.json
+(the source of each glyph).
+.TP
+.I build/pooled/
+The pool\-backed fonts the collections are made of.
+.TP
+.IR build/stamps.json ", " build/memory.json
+What each output was made from, and the memory each job took.
+.TP
+.IR dist/variable/ stem \-VF.otf ", " dist/variable/ stem \-Italic\-VF.otf
+The hinted variable fonts.
+.TP
+.IR dist/static/ stem \- style .otf
+The static fonts.
+.TP
+.IR dist/otc/ collection \-VF.otc ", " dist/otc/ collection \- style .otc
+The collections of the main fonts, variable
+.RB ( \-Italic\-VF
+for the italics) and static; those of the extensions start with
+.IB collection Ext\fR.
+.TP
+.I dist/pools.json
+The fonts of each pool.
+.TP
+.IR dist/release/ stem \- version \-VF.zip ", " dist/release/ stem \- version \-static.zip
+The variable fonts, and the static fonts, of a family in a region.
+.TP
+.IR dist/release/ collection \- version \-OTC\-VF.zip ", " dist/release/ collection \- version \-OTC.zip
+The collections, variable and static; the same for
+.IB collection Ext\fR.
+.SH ENVIRONMENT
+.TP
+.B MAPOTOFU_ROOT
+The font project, when the command is not run inside it.
+.TP
+.B SOURCE_DATE_EPOCH
+The date written into the fonts as created and modified, in seconds since 1970 (default:
+1767225600, the first day of 2026).
+A change sets the metadata of the built fonts again.
+.TP
+.BR LANGUAGE ", " LC_ALL ", " LC_MESSAGES ", " LANG
+The first of them that is set chooses the language of
+.BR \-\-man .
+.TP
+.BR MANPAGER ", " PAGER
+The pager of
+.BR man (1),
+which
+.B \-\-man
+uses.
+.SH EXIT STATUS
+0 when the step succeeded; 1 when it failed, or when no font project was found; 2 for a
+wrong command line.
+.SH NOTES
+Subroutinizing a static font takes about 100 times its size in memory.
+mapotofu records what each job took in
+.I build/memory.json
+and starts a job only while that much memory is free.
+.PP
+Do not run another
+.B uv run
+in a project while it builds: uv may write the environment anew, and the build loses its
+workers.
+.PP
+Fonts made from other fonts are Modified Versions of them.
+With sources under the SIL Open Font License the result is released under it too, and its
+names must not use the Reserved Font Names of the sources (Source Han Sans reserves
+\(lqSource\(rq).
+.SH EXAMPLES
+Download the sources, build everything and pack the release:
+.PP
+.EX
+uv run mapo fetch
+uv run mapo all
+uv run mapo release
+.EE
+.PP
+Build only the upright main fonts, eight pools at a time where there are that many:
+.PP
+.EX
+uv run mapo all \-j 8 \-\-only Upright
+.EE
+.PP
+Measure the strokes of two sources, then look at one detail of them side by side:
+.PP
+.EX
+mapo tool stems ExampleKai\-Regular.ttf "ExampleSans[wght].ttf@wght=400"
+mapo tool sheet spot.png "" ExampleKai\-Regular.ttf "ExampleSans[wght].ttf@wght=400" \-\-zoom 永 520 80 300
+.EE
+.PP
+After a change that should not alter the fonts, compare a font built before it with the one
+built after it:
+.PP
+.EX
+mapo tool same before/Gothic\-SC\-Upright.otf build/fonts/Gothic\-SC\-Upright.otf
+.EE
+.PP
+A complete
+.I mapotofu.toml
+for one family in two regions, with regular\-script italics for SC.
+The family names, file names and tags are only examples:
+.PP
+.EX
+[fonts]
+regions = ["SC", "J"]
+families = ["Gothic"]
+axis = { min = 250, default = 400, max = 800 }
+masters = [250, 300, 350, 400, 500, 600, 700, 800]
+cjk_weights = [[250, 250], [400, 400], [800, 800]]
+
+[fonts.cjk]
+SC = { file = "SourceHanSansSC\-VF.otf", language = "ZHS" }
+J = { file = "SourceHanSans\-VF.otf", language = "JAN" }
+
+[fonts.latin]
+Gothic = ["sans", "sansI"]
+
+[fonts.latin_sources]
+sans = { file = "ExampleSans[wdth,wght].ttf", location = { wdth = 100 } }
+sansI = { file = "ExampleSans\-Italic[wdth,wght].ttf", location = { wdth = 100 } }
+
+[fonts.italic_cjk_sources]
+kaiL = "ExampleKai\-Light.ttf"
+kaiR = { file = "ExampleKai\-Regular.ttf", advance = 1000, scale_x = 1.0, scale_y = 1.0 }
+
+[fonts.italic_cjk]
+SC = [{ from = 250, sources = ["kaiL"] }, { from = 350, sources = ["kaiR"] }]
+
+[meta]
+version = "1.0"
+designer = "A. Designer"
+copyright = "Copyright 2026 A. Designer"
+license = "This Font Software is licensed under the SIL Open Font License, Version 1.1."
+license_url = "https://openfontlicense.org"
+vendor = "EXMP"
+
+[meta.weights]
+Light = { value = 300, class = 300 }
+Regular = { value = 400, class = 400 }
+Bold = { value = 700, class = 700 }
+
+[meta.regions]
+SC = { windows_language = 0x0804, code_page_bit = 18 }
+J = { windows_language = 0x0411, code_page_bit = 17 }
+
+[meta.names.Gothic]
+SC = ["Example Gothic SC", "示例黑体"]
+J = ["Example Gothic", "見本ゴシック"]
+
+[meta.names.Ext]
+SC = ["Example Ext SC", "示例黑体 扩展"]
+J = ["Example Ext J", "見本ゴシック 拡張"]
+
+[meta.ext_cjk]
+name = "Example Ext CJK"
+local = { SC = "示例黑体 扩展 通用", J = "見本ゴシック 拡張 共通" }
+
+[meta.styles]
+SC = { Regular = "常规", Italic = "斜体", Bold = "粗体", "Bold Italic" = "粗斜体" }
+J = { Regular = "標準", Italic = "斜体", Bold = "太字", "Bold Italic" = "太字 斜体" }
+
+[hints]
+own = "example"
+
+[hints.groups]
+cid = "source\-han\-sans"
+sans = "example\-sans"
+sansI = "example\-sans\-italic"
+kai = "example\-kai"
+
+[package]
+collection = "Example"
+.EE
+.SH SEE ALSO
+.BR otfautohint (1),
+.BR tx (1),
+.BR fonttools (1),
+.BR uv (1)
+.PP
+https://github.com/lutianyu2001/mapotofu

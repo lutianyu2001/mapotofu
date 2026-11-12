@@ -1,0 +1,60 @@
+[project]
+name = "mapotofu"
+version = "0.1.0"
+description = "Build CJK composite fonts (CFF2 variable and static CFF, hinted) from a TOML description"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Tianyu (Sky) Lu" }]
+keywords = ["font", "CJK", "OpenType", "CFF2", "variable-font", "font-build"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Text Processing :: Fonts",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "afdko>=5.0.1",
+    "brotli>=1.2.1",
+    "cffsubr>=0.4.0",
+    "fonttools[lxml,unicode]>=4.68.0",
+    "freetype-py>=2.5.1",
+    "numpy>=2.5.4",
+    "pillow>=13.0.0",
+    "scikit-image>=0.26.0",
+    "scipy>=1.18.1",
+    "uharfbuzz>=0.57.0",
+]
+
+[project.urls]
+Repository = "https://github.com/lutianyu2001/mapotofu"
+Issues = "https://github.com/lutianyu2001/mapotofu/issues"
+
+[project.scripts]
+mapotofu = "mapotofu.cli:main"
+mapo = "mapotofu.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mapotofu"]
+
+# The manual pages, also where man looks for them: share/man of the environment.
+[tool.hatch.build.targets.wheel.shared-data]
+"src/mapotofu/man" = "share/man"
+
+# Listed, so that files Git does not track (hatchling leaves out only what .gitignore names)
+# stay out of the sdist.
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/README"]

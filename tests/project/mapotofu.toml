@@ -1,0 +1,141 @@
+# A font project for the tests of mapotofu: the configuration of Momoka (github.com/lutianyu2001/MomokaGothic).
+# Nothing is built here; tests needing built fonts are in the font projects.
+
+[fonts]
+regions = ["SC", "TC", "J"]
+families = ["Gothic", "UI", "Mono"]
+
+# Weight axis. Every source is piecewise linear in user space between these points (the union
+# of their avar breakpoints and master peaks inside the range), so masters placed here
+# reproduce the sources exactly and the output needs no avar.
+axis = { min = 250, default = 400, max = 800 }
+masters = [250, 300, 350, 400, 500, 600, 700, 800]
+
+# Momoka weight -> Source Han Sans weight: SemiBold matches Source Han Sans Medium; ExtraLight,
+# Light, Regular and Bold match their namesakes; linear in between.
+cjk_weights = [[250, 250], [300, 300], [400, 400], [600, 500], [700, 700], [800, 800]]
+
+# Source Han Sans by region, and the OpenType language system of the region.
+[fonts.cjk]
+SC = { file = "SourceHanSansSC-VF.otf", language = "ZHS" }
+TC = { file = "SourceHanSansTC-VF.otf", language = "ZHT" }
+J = { file = "SourceHanSans-VF.otf", language = "JAN" }
+
+# The Latin of each family: [upright, italic], by the tags of latin_sources.
+[fonts.latin]
+Gothic = ["noto", "notoI"]
+UI = ["noto", "notoI"]
+Mono = ["jbm", "jbmI"]
+
+# Latin sources by tag (the prefix of their glyph names): the file, fixed coordinates of other
+# axes, and the scale (Mono's JetBrains Mono, 5/6, fits its half-width cell).
+[fonts.latin_sources]
+noto = { file = "NotoSans[wdth,wght].ttf", location = { wdth = 100 } }
+notoI = { file = "NotoSans-Italic[wdth,wght].ttf", location = { wdth = 100 } }
+jbm = { file = "JetBrainsMono[wght].ttf", scale = 0.8333333333333334 }
+jbmI = { file = "JetBrainsMono-Italic[wght].ttf", scale = 0.8333333333333334 }
+
+# CJK italic sources by tag (the last letter names the weight).
+[fonts.italic_cjk_sources]
+gbL = "LXGWWenKaiGB-Light.ttf"
+gbR = "LXGWWenKaiGB-Regular.ttf"
+gbM = "LXGWWenKaiGB-Medium.ttf"
+tcL = "LXGWWenKaiTC-Light.ttf"
+tcR = "LXGWWenKaiTC-Regular.ttf"
+tcM = "LXGWWenKaiTC-Medium.ttf"
+wkL = "LXGWWenKai-Light.ttf"
+wkR = "LXGWWenKai-Regular.ttf"
+wkM = "LXGWWenKai-Medium.ttf"
+klR = "KleeOne-Regular.ttf"
+klS = "KleeOne-SemiBold.ttf"
+
+# The regular-script weights of the italics of each region (CJK: the shared extension): the
+# Momoka weight each is used from, until the next one's, and its sources, tried in order. Static
+# fonts take the nearest weight and bold italics take Medium, so the switch points sit halfway
+# between Light, Regular and Medium. LXGW WenKai Regular is drawn from Klee One SemiBold, so for
+# J it fills in for that weight.
+[fonts.italic_cjk]
+SC = [{ from = 250, sources = ["gbL"] }, { from = 350, sources = ["gbR"] }, { from = 450, sources = ["gbM"] }]
+TC = [{ from = 250, sources = ["tcL"] }, { from = 350, sources = ["tcR"] }, { from = 450, sources = ["tcM"] }]
+J = [{ from = 250, sources = ["klR", "wkL"] }, { from = 350, sources = ["klS", "wkR"] }]
+CJK = [{ from = 250, sources = ["gbL"] }, { from = 350, sources = ["gbR"] }, { from = 450, sources = ["gbM"] }]
+
+[meta]
+version = "0.1.0"
+designer = "Tianyu (Sky) Lu"
+copyright = "Copyright 2026 Tianyu (Sky) Lu (https://github.com/lutianyu2001)"
+license = "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org"
+license_url = "https://openfontlicense.org"
+vendor = "????"
+
+# The named weights, which are also the static fonts: the axis value, and OS/2 usWeightClass
+# (rounded to a multiple of 100).
+[meta.weights]
+ExtraLight = { value = 250, class = 200 }
+Light = { value = 300, class = 300 }
+Regular = { value = 400, class = 400 }
+Medium = { value = 500, class = 500 }
+SemiBold = { value = 600, class = 600 }
+Bold = { value = 700, class = 700 }
+ExtraBold = { value = 800, class = 800 }
+
+# Windows language ID of the local names, and the code page of the region (its bit in OS/2
+# ulCodePageRange1: CP936, CP950, CP932).
+[meta.regions]
+SC = { windows_language = 0x0804, code_page_bit = 18 }
+TC = { windows_language = 0x0404, code_page_bit = 20 }
+J = { windows_language = 0x0411, code_page_bit = 17 }
+
+# Family names by region: [English, local].
+[meta.names.Gothic]
+SC = ["Momoka Gothic SC", "桃华黑体"]
+TC = ["Momoka Gothic TC", "桃華黑體"]
+J = ["Momoka Gothic", "桃華ゴシック"]
+
+[meta.names.UI]
+SC = ["Momoka UI SC", "桃华黑体 UI"]
+TC = ["Momoka UI TC", "桃華黑體 UI"]
+J = ["Momoka UI", "桃華ゴシック UI"]
+
+[meta.names.Mono]
+SC = ["Momoka Mono SC", "桃华黑体 Mono"]
+TC = ["Momoka Mono TC", "桃華黑體 Mono"]
+J = ["Momoka Mono", "桃華ゴシック Mono"]
+
+[meta.names.Ext]
+SC = ["Momoka Ext SC", "桃华黑体 扩展"]
+TC = ["Momoka Ext TC", "桃華黑體 擴充"]
+J = ["Momoka Ext J", "桃華ゴシック 拡張"]
+
+# The shared extension carries the local names of all regions.
+[meta.ext_cjk]
+name = "Momoka Ext CJK"
+local = { SC = "桃华黑体 扩展 通用", TC = "桃華黑體 擴充 通用", J = "桃華ゴシック 拡張 共通" }
+
+# Local style names by region.
+[meta.styles]
+SC = { Regular = "常规", Italic = "斜体", Bold = "粗体", "Bold Italic" = "粗斜体" }
+TC = { Regular = "標準", Italic = "斜體", Bold = "粗體", "Bold Italic" = "粗斜體" }
+J = { Regular = "標準", Italic = "斜体", Bold = "太字", "Bold Italic" = "太字 斜体" }
+
+# Where the hint cache keeps the hints of each source's glyphs: glyph name prefix (a Latin tag, a
+# CJK italic tag without its weight letter, "cid" for Source Han Sans) -> directory under
+# hints/; glyphs mapotofu draws itself (.notdef) go to `own`.
+[hints]
+own = "momoka"
+
+[hints.groups]
+cid = "source-han-sans"
+noto = "noto-sans"
+notoI = "noto-sans-italic"
+jbm = "jetbrains-mono"
+jbmI = "jetbrains-mono-italic"
+gb = "lxgw-wenkai-gb"
+tc = "lxgw-wenkai-tc"
+wk = "lxgw-wenkai"
+kl = "klee-one"
+
+[package]
+# Name of the collections in dist/otc (Momoka-Regular.otc, MomokaExt-Regular.otc, ...) and of
+# their zips.
+collection = "Momoka"

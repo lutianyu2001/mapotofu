@@ -1,0 +1,39 @@
+# CI of the Python package: its tests, on a push to main and on a pull request. release.yml runs it
+# through workflow_call before it builds a release. It holds no secret, can write nothing, and
+# restores no cache.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Per project: the systems the project supports.
+        os: [ubuntu-24.04]
+        # Per project: the oldest Python the project supports and the newest.
+        python: ["3.12", "3.14"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: pipx install uv==0.13.4
+      # Per project: what the tests need beside the project, and the pytest they were last seen
+      # with; a C/C++ extension is built here by its build backend.
+      - name: Install the project and run its tests
+        env:
+          PYTHON: ${{ matrix.python }}
+        run: |
+          uv venv --python "$PYTHON" "$RUNNER_TEMP/venv"
+          VIRTUAL_ENV="$RUNNER_TEMP/venv" uv pip install . pytest==9.2.0
+          "$RUNNER_TEMP/venv/bin/python" -m pytest -q
