@@ -121,7 +121,26 @@ def test_sheet_draws_a_row_a_font_and_a_row_a_spot(font, tmp_path):
 def test_specimen_renders_the_lines(font, tmp_path):
     out = tmp_path / "specimen.png"
     tools.main(["specimen", font, str(out), "--weights", "400", "--size", "20"])
-    assert np.asarray(Image.open(out)).shape == (len(specimen.LINES) * 32 + 20, 680)
+    # (the font drawn here has none of the sample's characters: each is its .notdef, an em wide)
+    longest = max(len(line) for line in specimen.LINES)
+    assert np.asarray(Image.open(out)).shape == (len(specimen.LINES) * 32 + 20, longest * 20 + 70)
+    # a font without a weight axis is set once, whatever weights are asked for
+    tools.main(["specimen", font, str(out), "--size", "20"])
+    assert np.asarray(Image.open(out)).shape == (len(specimen.LINES) * 32 + 20, longest * 20 + 70)
+
+
+def test_specimen_sets_the_lines_given(font, tmp_path):
+    out = tmp_path / "specimen.png"
+    tools.main(["specimen", font, str(out), "--size", "20", "--text", "十工", "--text", "工"])
+    img = np.asarray(Image.open(out))
+    assert img.shape == (2 * 32 + 20, 680)
+    first, second = img[10:42] < 128, img[42:74] < 128
+    assert first[:, 10:30].any() and first[:, 30:50].any()          # two glyphs, an em each
+    assert second[:, 10:30].any() and not second[:, 30:].any()      # one
+    # a line longer than the picture's least width makes it longer: nothing is cut off
+    tools.main(["specimen", font, str(out), "--size", "20", "--text", "十" * 40])
+    img = np.asarray(Image.open(out))
+    assert img.shape == (32 + 20, 40 * 20 + 70) and (img[:, 39 * 20 + 10:40 * 20 + 10] < 128).any()
 
 
 def test_same_tells_the_glyphs_that_differ(font, tmp_path, capsys):

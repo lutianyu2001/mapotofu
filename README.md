@@ -155,7 +155,7 @@ Recommended order for a new project:
 | `points FONT TEXT` | The points of glyphs' outlines as the font stores them: number, x, y, on the curve or off; `--box X0 Y0 X1 Y1` for one part of a glyph |
 | `same FONT FONT` | Whether two fonts have exactly the same glyphs (outlines and advance widths), and which differ: the check that a change left the fonts alone. Exit status 0 if the same, 1 if not |
 | `sheet OUT.png TEXT FONT...` | The same characters in several fonts, a row each, to compare by eye; with `--zoom CHAR X Y WIDTH`, one spot of a glyph in each font instead |
-| `specimen FONT OUT.png` | Sample lines of a font at several weights, shaped as text is |
+| `specimen FONT OUT.png` | Sample lines of a font at several weights, shaped as text is; `--text LINE` (repeatable) sets your own lines, for instance Han beside Latin and digits |
 | `stems FONT...` | Stroke widths (vertical, horizontal, their ratio) and glyph size of fonts, in units of 1000 per em: which weight of a source matches a master, and what `scale` fits one font to another |
 | `weights FONT FONT...` | How the measures of a family change with weight: the strokes, the width of the ink, the side bearings and the advance of each weight in percent of one of them |
 | `change LIGHT HEAVY` | The glyphs that change between two weights of a font unlike the others of their kind (ink, thick and thin strokes, width, height, advance), the furthest off first: where to look in a weight that was derived from another. `--reference LIGHT HEAVY` takes the spread a kind may have from another family |
