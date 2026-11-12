@@ -3,7 +3,9 @@
     <strong>English</strong> | <a href="https://github.com/lutianyu2001/mapotofu/blob/main/README/README_CN.md">中文</a> | <a href="https://github.com/lutianyu2001/mapotofu/blob/main/README/README_JP.md">日本語</a>
 </p>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)<br>
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Release](https://img.shields.io/github/v/release/lutianyu2001/mapotofu)](https://github.com/lutianyu2001/mapotofu/releases)
+[![PyPI Version](https://img.shields.io/pypi/v/mapotofu)](https://pypi.org/project/mapotofu/)<br>
 [![CI](https://github.com/lutianyu2001/mapotofu/actions/workflows/ci.yml/badge.svg)](https://github.com/lutianyu2001/mapotofu/actions/workflows/ci.yml)
 
 mapotofu is a build program for CJK composite fonts: it merges a CJK font with a Latin font, and optionally CJK italic sources (a regular-script or slanted font drawn as such), into hinted variable and static fonts, from one TOML file per font project.

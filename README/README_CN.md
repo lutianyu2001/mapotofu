@@ -3,7 +3,9 @@
     <a href="../README.md">English</a> | <strong>中文</strong> | <a href="./README_JP.md">日本語</a>
 </p>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)<br>
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Release](https://img.shields.io/github/v/release/lutianyu2001/mapotofu)](https://github.com/lutianyu2001/mapotofu/releases)
+[![PyPI Version](https://img.shields.io/pypi/v/mapotofu)](https://pypi.org/project/mapotofu/)<br>
 [![CI](https://github.com/lutianyu2001/mapotofu/actions/workflows/ci.yml/badge.svg)](https://github.com/lutianyu2001/mapotofu/actions/workflows/ci.yml)
 
 mapotofu 是 CJK 合成字体的构建程序：它把一套 CJK 字体、一套拉丁字体（以及可选的斜体用 CJK 字体，例如楷体或专门设计的斜体）合成带 hint 的可变字体和固定字重字体，每个字体项目只用一个 TOML 文件描述。

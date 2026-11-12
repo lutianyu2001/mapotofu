@@ -3,7 +3,9 @@
     <a href="../README.md">English</a> | <a href="./README_CN.md">中文</a> | <strong>日本語</strong>
 </p>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)<br>
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Release](https://img.shields.io/github/v/release/lutianyu2001/mapotofu)](https://github.com/lutianyu2001/mapotofu/releases)
+[![PyPI Version](https://img.shields.io/pypi/v/mapotofu)](https://pypi.org/project/mapotofu/)<br>
 [![CI](https://github.com/lutianyu2001/mapotofu/actions/workflows/ci.yml/badge.svg)](https://github.com/lutianyu2001/mapotofu/actions/workflows/ci.yml)
 
 mapotofu は CJK 合成フォントのビルドプログラムです。CJK フォント、欧文フォント（と、任意でイタリック用の CJK フォント。楷書体や専用にデザインされた斜体など）を合成し、ヒント付きの可変フォントと静的フォントを作ります。フォントプロジェクトごとに TOML ファイル 1 つで記述します。
